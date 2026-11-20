@@ -1,0 +1,179 @@
+# App processes reach MySQL, RabbitMQ, MinIO, and Mailpit through the published
+# host ports. That works on Docker Desktop and on engines where bridge forwarding
+# is not available. The ports below are part of the local contract.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: firstrep
+      MYSQL_USER: firstrep
+      MYSQL_PASSWORD: firstrep
+      MYSQL_ROOT_PASSWORD: rootlocal
+      TZ: UTC
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=+00:00"]
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootlocal"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: firstrep
+      RABBITMQ_DEFAULT_PASS: firstrep
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  minio-init:
+    image: alpine:3.20
+    command: ["chown", "-R", "65532:65532", "/data"]
+    volumes:
+      - minio-data:/data
+
+  minio:
+    image: chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: firstrep
+      MINIO_ROOT_PASSWORD: firstrep-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "minio", "--version"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - minio-data:/data
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8025/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./backend
+    image: firstrep-local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SERVER_PORT: 8080
+      DB_URL: jdbc:mysql://host.docker.internal:3306/firstrep?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&tinyInt1isBit=false
+      DB_USER: firstrep
+      DB_PASSWORD: firstrep
+      RABBIT_HOST: host.docker.internal
+      RABBIT_USER: firstrep
+      RABBIT_PASSWORD: firstrep
+      MINIO_ENDPOINT: http://host.docker.internal:9000
+      MINIO_ACCESS_KEY: firstrep
+      MINIO_SECRET_KEY: firstrep-secret
+      MINIO_BUCKET: firstrep-private
+      STORAGE_MODE: s3
+      MAIL_HOST: host.docker.internal
+      MAIL_PORT: 1025
+      JWT_SECRET: dev-only-firstrep-jwt-secret-change-me-32b
+      APP_BASE_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+      FIRSTREP_BILLING_MODE: simulator
+      FIRSTREP_AI_PROVIDER: mock
+      FIRSTREP_OUTBOX_PUBLISH: "true"
+      FIRSTREP_WORKER_CONSUME: "false"
+      FIRSTREP_SEED_ENABLED: "true"
+      FIRSTREP_EXPOSE_EMAIL_TOKENS: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+      interval: 8s
+      timeout: 5s
+      retries: 40
+
+  worker:
+    image: firstrep-local
+    pull_policy: never
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_PROFILES_ACTIVE: worker
+      SERVER_PORT: 8081
+      DB_URL: jdbc:mysql://host.docker.internal:3306/firstrep?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&tinyInt1isBit=false
+      DB_USER: firstrep
+      DB_PASSWORD: firstrep
+      RABBIT_HOST: host.docker.internal
+      RABBIT_USER: firstrep
+      RABBIT_PASSWORD: firstrep
+      MINIO_ENDPOINT: http://host.docker.internal:9000
+      MINIO_ACCESS_KEY: firstrep
+      MINIO_SECRET_KEY: firstrep-secret
+      MINIO_BUCKET: firstrep-private
+      STORAGE_MODE: s3
+      MAIL_HOST: host.docker.internal
+      MAIL_PORT: 1025
+      JWT_SECRET: dev-only-firstrep-jwt-secret-change-me-32b
+      APP_BASE_URL: http://localhost:5173
+      FIRSTREP_BILLING_MODE: simulator
+      FIRSTREP_AI_PROVIDER: mock
+      FIRSTREP_OUTBOX_PUBLISH: "false"
+      FIRSTREP_WORKER_CONSUME: "true"
+      FIRSTREP_SEED_ENABLED: "false"
+      FIRSTREP_EXPOSE_EMAIL_TOKENS: "false"
+    ports:
+      - "8081:8081"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/actuator/health"]
+      interval: 8s
+      timeout: 5s
+      retries: 40
+
+  frontend:
+    build: ./frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/"]
+      interval: 8s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql-data:
+  minio-data:

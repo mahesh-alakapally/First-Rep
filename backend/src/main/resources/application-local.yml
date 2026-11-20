@@ -1,0 +1,14 @@
+management:
+  endpoint:
+    health:
+      show-details: always
+
+firstrep:
+  dev:
+    expose-email-tokens: true
+  seed:
+    enabled: true
+  billing:
+    mode: simulator
+  ai:
+    provider: mock

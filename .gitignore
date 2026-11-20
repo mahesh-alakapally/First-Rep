@@ -1,0 +1,15 @@
+.envtarget/
+node_modules/
+dist/
+.env
+.env.local
+.idea/
+.vscode/
+*.log
+playwright-report/
+test-results/
+blob-report/
+coverage/
+.DS_Store
+backend/src/main/resources/application-local-secrets.yml
+frontend/playwright/.auth/

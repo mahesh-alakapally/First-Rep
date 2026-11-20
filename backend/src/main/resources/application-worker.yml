@@ -1,0 +1,18 @@
+spring:
+  flyway:
+    enabled: false
+
+firstrep:
+  seed:
+    enabled: false
+  outbox:
+    publish: false
+  worker:
+    consume: true
+  dev:
+    expose-email-tokens: false
+
+management:
+  endpoint:
+    health:
+      show-details: always

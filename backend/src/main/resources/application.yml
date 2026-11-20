@@ -1,0 +1,108 @@
+spring:
+  application:
+    name: firstrep
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/firstrep?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8&tinyInt1isBit=false}
+    username: ${DB_USER:firstrep}
+    password: ${DB_PASSWORD:firstrep}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.type.preferred_boolean_jdbc_type: TINYINT
+  flyway:
+    enabled: true
+    connect-retries: 20
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:firstrep}
+    password: ${RABBIT_PASSWORD:firstrep}
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: FirstRep
+    description: Project-based early-career evidence platform
+
+firstrep:
+  free-allowance: 2
+  app-base-url: ${APP_BASE_URL:http://localhost:5173}
+  cors-origins: ${CORS_ORIGINS:http://localhost:5173}
+  security:
+    jwt-secret: ${JWT_SECRET:dev-only-firstrep-jwt-secret-change-me-32b}
+    access-ttl: 15m
+    refresh-ttl: 7d
+    cookie-secure: false
+    auth-rate-limit: 30
+  billing:
+    mode: ${FIRSTREP_BILLING_MODE:simulator}
+    stripe-secret-key: ${STRIPE_SECRET_KEY:}
+    stripe-webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    stripe-api-base: https://api.stripe.com
+  ai:
+    provider: ${FIRSTREP_AI_PROVIDER:mock}
+    openai-api-key: ${OPENAI_API_KEY:}
+    openai-base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    model: ${AI_MODEL:}
+    prompt-version: ${AI_PROMPT_VERSION:rubric-v1}
+    timeout: 30s
+    max-evidence-chars: 12000
+  storage:
+    mode: ${STORAGE_MODE:s3}
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:firstrep}
+    secret-key: ${MINIO_SECRET_KEY:firstrep-secret}
+    bucket: ${MINIO_BUCKET:firstrep-private}
+    region: us-east-1
+  mail:
+    from: ${MAIL_FROM:FirstRep <noreply@firstrep.local>}
+  dev:
+    expose-email-tokens: ${FIRSTREP_EXPOSE_EMAIL_TOKENS:false}
+  seed:
+    enabled: ${FIRSTREP_SEED_ENABLED:false}
+  outbox:
+    publish: ${FIRSTREP_OUTBOX_PUBLISH:true}
+  worker:
+    consume: ${FIRSTREP_WORKER_CONSUME:false}
+    max-attempts: 3
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%X{requestId}] %logger{36} : %msg%n"
+  level:
+    org.hibernate.SQL: warn

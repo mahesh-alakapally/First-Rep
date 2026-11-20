@@ -1,0 +1,29 @@
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        shutdown-timeout: 2s
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+firstrep:
+  seed:
+    enabled: false
+  billing:
+    mode: simulator
+  ai:
+    provider: mock
+  storage:
+    mode: memory
+  dev:
+    expose-email-tokens: true
+  security:
+    jwt-secret: test-only-firstrep-jwt-secret-32-bytes-min
+    auth-rate-limit: 500
+  outbox:
+    publish: false
+  worker:
+    consume: false
